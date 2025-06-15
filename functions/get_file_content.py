@@ -6,16 +6,16 @@ MAX_CHARS = 10000
 # Returns the file content as a string or as an error string if something goes wrong.
 def get_file_content(working_directory, file_path):
     abs_working_dir = os.path.abspath(working_directory)
-    target_file = os.path.abspath(os.path.join(working_directory, file_path))
+    abs_file_path = os.path.abspath(os.path.join(working_directory, file_path))
     
-    if not target_file.startswith(abs_working_dir):
+    if not abs_file_path.startswith(abs_working_dir):
         return f'Error: Cannot read "{file_path}" as it is outside the permitted working directory'
     
-    if not os.path.isfile(target_file):
+    if not os.path.isfile(abs_file_path):
         return f'Error: File not found or is not a regular file: "{file_path}"'
     
     try:
-        with open(target_file, 'r', encoding='utf-8') as file:
+        with open(abs_file_path, 'r', encoding='utf-8') as file:
             content = file.read(MAX_CHARS)
             if len(content) == MAX_CHARS:
                 content += (
