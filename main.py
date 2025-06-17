@@ -2,40 +2,15 @@ import os
 import sys
 from dotenv import load_dotenv # type: ignore
 from google.genai import Client, types # type: ignore
+
+from functions.get_file_content import get_file_content #type: ignore
 from functions.get_files_info import get_files_info #type: ignore
+from functions.run_python_file import run_python_file #type: ignore
+from functions.write_file_content import write_file #type: ignore
 
-GEMINI_MODEL = 'gemini-2.0-flash-001'
-system_prompt = """
-You are a helpful AI coding agent.
+from prompts import system_prompt
+from call_function import available_functions
 
-When a user asks a question or makes a request, make a function call plan.
-
-You can perform the following operations:
-- List files and directories
-
-All paths you provide should be relative to the working directory.
-You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
-"""
-
-schema_get_files_info = types.FunctionDeclaration(
-    name="get_files_info",
-    description="Lists files in the specified directory along with their sizes, constrained to the working directory.",
-    parameters=types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "directory": types.Schema(
-                type=types.Type.STRING,
-                description="The directory to list files from, relative to the working directory. If not provided, lists files in the working directory itself.",
-            )
-        }
-    )
-)
-
-available_functions = types.Tool(
-    function_declarations=[
-        schema_get_files_info,
-    ]
-)
 
 def get_api_key() -> str:
     load_dotenv()
@@ -63,12 +38,13 @@ def main():
     ]
 
     response = client.models.generate_content(
-        model=GEMINI_MODEL,
+        model='gemini-2.0-flash-001',
         contents=messages,
         config=types.GenerateContentConfig(
             tools=[available_functions], system_instruction=system_prompt,
         ),
     )
+
 
     if not response.text and not response.function_calls:
         print("Error: No response text or function calls received from the API.")
@@ -88,11 +64,28 @@ def main():
                 directory = call.args.get("directory", ".")
                 result = get_files_info(working_directory=os.getcwd(), directory=directory)
                 print(f"Function call result:\n {result}")
+            elif call.name == "get_file_content":
+                file_path = call.args.get("file_path")
+                result = get_file_content(working_directory=os.getcwd(), file_path=file_path)
+                print(f"Function call result:\n {result}")
+            elif call.name == "run_python_file":
+                file_path = call.args.get("file_path")
+                result = run_python_file(working_directory=os.getcwd(), file_path=file_path)
+                print(f"Function call result:\n {result}")
+            elif call.name == "write_file_content":
+                file_path = call.args.get("file_path")
+                content = call.args.get("content")
+                if content is None:
+                    print("Error: 'content' argument is required for write_file_content.")
+                    continue
+                result = write_file(working_directory=os.getcwd(), file_path=file_path, content=content)
+                print(f"Function call result:\n {result}")
+
             else:
                 print(f"Error: Unknown function call {call.name}")
             
-
-    # print(response.text)
+    # if response.text and not response.function_calls:
+    #    print(f"Response text:\n{response.text}")
 
 if __name__ == "__main__":
     main()
